@@ -15,8 +15,8 @@ type File struct {
 
 type SearchRule struct {
 	RuleName        string
-	DirRules        []string //目录的约束条件，条件之间的关系是或。如果需要表达且应当令起一个搜索配置
-	FileNameRegexps []string //目标文件名的正则表达式
+	DirRules        []string         //目录的约束条件，条件之间的关系是或。如果需要表达且应当令起一个搜索配置
+	FileNameRegexps []*regexp.Regexp //目标文件名的正则表达式
 }
 
 type FileDB struct {
@@ -25,7 +25,7 @@ type FileDB struct {
 	IsWindows bool
 }
 
-func (fdb FileDB) Search(rules []SearchRule) map[string][]string {
+func (fdb FileDB) Search(rules []*SearchRule) map[string][]string {
 	result := map[string][]string{}
 	for _, rule := range rules {
 		r, _ := fdb.SearchOne(rule)
@@ -53,21 +53,15 @@ func (fdb FileDB) Search(rules []SearchRule) map[string][]string {
 	return result
 }
 
-func (fdb FileDB) SearchOne(rule SearchRule) ([]string, error) {
+func (fdb FileDB) SearchOne(rule *SearchRule) ([]string, error) {
 	var result []string
 	var targetIndexes []int
 
 	//如果有多个正则匹配到同样的文件名，结果将出现重复路径
 	for _, exp := range rule.FileNameRegexps {
-		re, err := regexp.Compile(exp)
-		if err != nil {
-			return result, err
-		}
 		for fileName, indexes := range fdb.FileIndex {
-			if re.Match([]byte(fileName)) {
-				for _, index := range indexes {
-					targetIndexes = append(targetIndexes, index)
-				}
+			if exp.Match([]byte(fileName)) {
+				targetIndexes = append(targetIndexes, indexes...)
 			}
 		}
 	}
@@ -75,7 +69,7 @@ func (fdb FileDB) SearchOne(rule SearchRule) ([]string, error) {
 	for _, index := range targetIndexes {
 		f := fdb.Files[index]
 
-		if rule.DirRules != nil && len(rule.DirRules) > 0 {
+		if len(rule.DirRules) > 0 {
 			for _, r := range rule.DirRules {
 				if DirCheck(r, f.AbsDirPath, fdb.IsWindows) {
 					result = append(result, f.AbsDirPath+f.Name)
@@ -98,11 +92,7 @@ func (fdb *FileDB) Append(path string) {
 		Name:       name,
 		AbsDirPath: dir,
 	})
-	if _, ok := fdb.FileIndex[name]; ok {
-		fdb.FileIndex[name] = append(fdb.FileIndex[name], len(fdb.Files)-1)
-	} else {
-		fdb.FileIndex[name] = []int{len(fdb.Files) - 1}
-	}
+	fdb.FileIndex[name] = append(fdb.FileIndex[name], len(fdb.Files)-1)
 }
 
 // ChangeOSType 修改FileDB路径解析格式

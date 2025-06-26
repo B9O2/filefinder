@@ -2,6 +2,7 @@ package filefinder
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 )
 
@@ -10,7 +11,7 @@ func TestDirCheck(t *testing.T) {
 }
 
 func TestNewFileDB(t *testing.T) {
-	db, err := NewFileDB("/Users/xuziyi/Desktop/TestPy")
+	db, err := NewFileDB("/Users/restr0/Projects/GolangProjects")
 	if err != nil {
 		println(err)
 		return
@@ -18,10 +19,13 @@ func TestNewFileDB(t *testing.T) {
 	//for _, f := range db.Files {
 	//	fmt.Printf("%s (%s)\n", f.Name, f.AbsDirPath)
 	//}
-	one, err := db.SearchOne(SearchRule{
+	one, err := db.SearchOne(&SearchRule{
 		DirRules:        nil,
-		FileNameRegexps: []string{".+\\.py"},
+		FileNameRegexps: []*regexp.Regexp{regexp.MustCompile(".*\\.go$")},
 	})
+	if err != nil {
+		fmt.Println(err)
+	}
 	for i, name := range one {
 		fmt.Printf("%d. %s\n", i, name)
 	}
