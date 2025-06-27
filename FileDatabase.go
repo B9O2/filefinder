@@ -25,10 +25,10 @@ type FileDB struct {
 	IsWindows bool
 }
 
-func (fdb FileDB) Search(rules []*SearchRule) map[string]map[string][]string {
+func (fdb FileDB) Search(rules []*SearchRule, funcs ...func(regex string, path string) string) map[string]map[string][]string {
 	result := map[string]map[string][]string{}
 	for _, rule := range rules {
-		r, _ := fdb.SearchOne(rule)
+		r, _ := fdb.SearchOne(rule, funcs...)
 		result[rule.RuleName] = r
 	}
 
@@ -49,7 +49,7 @@ func (fdb FileDB) Search(rules []*SearchRule) map[string]map[string][]string {
 	return result
 }
 
-func (fdb FileDB) SearchOne(rule *SearchRule) (map[string][]string, error) {
+func (fdb FileDB) SearchOne(rule *SearchRule, funcs ...func(regex string, path string) string) (map[string][]string, error) {
 	results := make(map[string][]string)
 	targetIndexes := make(map[string][]int)
 
@@ -75,7 +75,13 @@ func (fdb FileDB) SearchOne(rule *SearchRule) (map[string][]string, error) {
 					}
 				}
 			} else {
-				result = append(result, f.AbsDirPath+f.Name)
+				path := f.AbsDirPath + f.Name
+				for _, fn := range funcs {
+					path = fn(expStr, path)
+				}
+				if path != "" {
+					result = append(result, path)
+				}
 			}
 		}
 		results[expStr] = result
