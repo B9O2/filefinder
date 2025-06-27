@@ -26,8 +26,11 @@ func TestNewFileDB(t *testing.T) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	for i, name := range one {
-		fmt.Printf("%d. %s\n", i, name)
+	for regexStr, paths := range one {
+		fmt.Printf("Regex: %s\n", regexStr)
+		for i, path := range paths {
+			fmt.Printf("  %d. %s\n", i, path)
+		}
 	}
 
 }

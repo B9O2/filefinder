@@ -25,63 +25,63 @@ type FileDB struct {
 	IsWindows bool
 }
 
-func (fdb FileDB) Search(rules []*SearchRule) map[string][]string {
-	result := map[string][]string{}
+func (fdb FileDB) Search(rules []*SearchRule) map[string]map[string][]string {
+	result := map[string]map[string][]string{}
 	for _, rule := range rules {
 		r, _ := fdb.SearchOne(rule)
-		if _, ok := result[rule.RuleName]; ok {
-			result[rule.RuleName] = append(result[rule.RuleName], r...)
-		} else {
-			result[rule.RuleName] = r
-		}
+		result[rule.RuleName] = r
 	}
 
-	var clearResult []string
-	//todo 结果去重
-	for name, paths := range result {
-		clearResult = []string{}
-		midResult := map[string]byte{}
-		for _, path := range paths {
-			if _, ok := midResult[path]; ok {
-				midResult[path] = 'n'
-			} else {
-				clearResult = append(clearResult, path)
+	// 结果去重
+	for ruleName, regexResults := range result {
+		for regexStr, paths := range regexResults {
+			clearResult := []string{}
+			midResult := map[string]bool{}
+			for _, path := range paths {
+				if !midResult[path] {
+					midResult[path] = true
+					clearResult = append(clearResult, path)
+				}
 			}
+			result[ruleName][regexStr] = clearResult
 		}
-		result[name] = clearResult
 	}
 	return result
 }
 
-func (fdb FileDB) SearchOne(rule *SearchRule) ([]string, error) {
-	var result []string
-	var targetIndexes []int
+func (fdb FileDB) SearchOne(rule *SearchRule) (map[string][]string, error) {
+	results := make(map[string][]string)
+	targetIndexes := make(map[string][]int)
 
 	//如果有多个正则匹配到同样的文件名，结果将出现重复路径
 	for _, exp := range rule.FileNameRegexps {
 		for fileName, indexes := range fdb.FileIndex {
 			if exp.Match([]byte(fileName)) {
-				targetIndexes = append(targetIndexes, indexes...)
+				targetIndexes[exp.String()] = append(targetIndexes[exp.String()], indexes...)
 			}
 		}
 	}
 
-	for _, index := range targetIndexes {
-		f := fdb.Files[index]
+	for expStr, indexes := range targetIndexes {
+		var result []string
+		for _, index := range indexes {
+			f := fdb.Files[index]
 
-		if len(rule.DirRules) > 0 {
-			for _, r := range rule.DirRules {
-				if DirCheck(r, f.AbsDirPath, fdb.IsWindows) {
-					result = append(result, f.AbsDirPath+f.Name)
-					break
+			if len(rule.DirRules) > 0 {
+				for _, r := range rule.DirRules {
+					if DirCheck(r, f.AbsDirPath, fdb.IsWindows) {
+						result = append(result, f.AbsDirPath+f.Name)
+						break
+					}
 				}
+			} else {
+				result = append(result, f.AbsDirPath+f.Name)
 			}
-		} else {
-			result = append(result, f.AbsDirPath+f.Name)
 		}
+		results[expStr] = result
 	}
 
-	return result, nil
+	return results, nil
 
 }
 
